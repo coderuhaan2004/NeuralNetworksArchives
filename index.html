@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neural Networks Archives: LeNet & ResNet Implementations</title>
+    <link rel="stylesheet" href="https://latex.vercel.app/style.min.css" />
+    <link rel="stylesheet" href="https://latex.vercel.app/prism/prism.css">
+    <script src="https://cdn.jsdelivr.net/npm/prismjs/prism.min.js"></script>
+</head>
+
+<body class="text-justify latex-auto">
+    <header>
+        <h1>Neural Networks</h1>
+        <p class="author">
+            Ruhaan Choudhary<br>
+        </p>
+        <p style="text-align:center;">
+            <a href="https://github.com/coderuhaan2004/NeuralNetworks" target="_blank">GitHub Repository</a>
+        </p>
+    </header>
+
+    <div class="abstract">
+        <h2>Abstract</h2>
+        <p>
+            This project demonstrates the implementation of two foundational convolutional neural network architectures—LeNet and ResNet—using PyTorch. The focus is on the exact architectural details and code structure for both models, providing a clear reference for anyone seeking to understand or extend these classic deep learning models. The code is organized in Jupyter Notebooks, with LeNet applied to digit recognition and ResNet implemented for more complex image classification tasks.
+        </p>
+    </div>
+
+    <nav role="navigation" class="toc">
+        <h2>Contents</h2>
+        <ol>
+            <li><a href="#introduction">Introduction</a></li>
+            <li><a href="#lenet">LeNet Implementation</a></li>
+            <li><a href="#resnet">ResNet Implementation</a></li>
+            <li><a href="#training">Training and Evaluation Loop</a></li>
+            <li><a href="#conclusion">Conclusion</a></li>
+            <li><a href="#bibliography">Bibliography</a></li>
+        </ol>
+    </nav>
+
+    <main>
+        <article>
+            <h2 id="introduction">Introduction</h2>
+            <p>
+                This archive contains clean, well-documented PyTorch implementations of two influential convolutional neural network architectures: <b>LeNet</b> and <b>ResNet</b>. The code is structured for clarity and modularity, making it easy to adapt for various datasets and tasks. The LeNet model is implemented for digit recognition, while the ResNet model is designed for more complex image classification, such as medical images. The emphasis here is on the architecture and code, rather than the specifics of any one dataset.
+            </p>
+
+            <h2 id="lenet">LeNet Implementation</h2>
+            <p>
+                The LeNet architecture, originally proposed by Yann LeCun, is a pioneering convolutional neural network designed for handwritten digit recognition. The implementation in <code>DigitRecognitionUsingLeNet_4.ipynb</code> closely follows the original design, with two convolutional layers, two average pooling layers, and two fully connected layers. The model uses the <code>Tanh</code> activation function, as in the original paper.
+            </p>
+            <pre><code class="language-python">
+import torch.nn as nn
+
+class DigitClassifier(nn.Module):
+    def __init__(self):
+        super(DigitClassifier, self).__init__()
+        self.convnet = nn.Sequential(
+            nn.Conv2d(1, 4, kernel_size=5, stride=1, padding=0),  # 32x32x1 -> 28x28x4
+            nn.AvgPool2d(kernel_size=2, stride=2),                # 28x28x4 -> 14x14x4
+            nn.Conv2d(4, 16, kernel_size=5, stride=1, padding=0), # 14x14x4 -> 10x10x16
+            nn.AvgPool2d(kernel_size=2, stride=2)                 # 10x10x16 -> 5x5x16
+        )
+        self.fc1 = nn.Linear(400, 120)  # 5*5*16 = 400
+        self.fc2 = nn.Linear(120, 10)
+        self.activation = nn.Tanh()
+
+    def forward(self, x_in):
+        x = self.convnet(x_in)
+        x = x.view(x.size(0), -1)
+        x = self.activation(self.fc1(x))
+        prediction = self.fc2(x)
+        return prediction
+            </code></pre>
+            <ul>
+                <li><b>Input:</b> 32x32 grayscale images (MNIST images are padded from 28x28 to 32x32).</li>
+                <li><b>Convolutional Layers:</b> Two layers with kernel size 5, followed by average pooling.</li>
+                <li><b>Fully Connected Layers:</b> 400 → 120 → 10 (for 10 digit classes).</li>
+                <li><b>Activation:</b> Tanh for hidden layer, linear output for logits.</li>
+            </ul>
+
+            <h2 id="resnet">ResNet Implementation</h2>
+            <p>
+                The ResNet (Residual Network) architecture is a deep convolutional network that introduces skip connections (residual connections) to enable the training of very deep networks. The implementation in <code>medMNIST.ipynb</code> includes both a <b>Basic Residual Block</b> and a full <b>ResNet</b> class, closely following the original ResNet-18/34 design.
+            </p>
+            <h3>Basic Residual Block</h3>
+            <pre><code class="language-python">
+import torch.nn.functional as F
+
+class BasicBlock(nn.Module):
+    expansion = 1
+
+    def __init__(self, in_channels, out_channels, stride=1, downsample=None):
+        super(BasicBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.downsample = downsample
+
+    def forward(self, x):
+        identity = x
+        if self.downsample is not None:
+            identity = self.downsample(x)
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = F.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out += identity
+        out = F.relu(out)
+        return out
+            </code></pre>
+            <h3>ResNet Model</h3>
+            <pre><code class="language-python">
+class ResNet(nn.Module):
+    def __init__(self, block, layers, num_classes):
+        super(ResNet, self).__init__()
+        self.in_channels = 64
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, 64, layers[0])
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
+
+    def _make_layer(self, block, out_channels, blocks, stride=1):
+        downsample = None
+        if stride != 1 or self.in_channels != out_channels * block.expansion:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.in_channels, out_channels * block.expansion,
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels * block.expansion),
+            )
+        layers = []
+        layers.append(block(self.in_channels, out_channels, stride, downsample))
+        self.in_channels = out_channels * block.expansion
+        for _ in range(1, blocks):
+            layers.append(block(self.in_channels, out_channels))
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
+            </code></pre>
+            <ul>
+                <li><b>Input:</b> 3-channel images (e.g., RGB medical images).</li>
+                <li><b>Initial Stem:</b> 7x7 convolution, batch norm, ReLU, max pooling.</li>
+                <li><b>Residual Layers:</b> Four stages, each with multiple BasicBlocks and possible downsampling.</li>
+                <li><b>Global Average Pooling:</b> Reduces spatial dimensions before the final fully connected layer.</li>
+                <li><b>Output:</b> Number of classes as required by the dataset.</li>
+            </ul>
+
+            <h2 id="training">Training and Evaluation Loop</h2>
+            <p>
+                Both notebooks include standard PyTorch training and evaluation loops. The code is modular, with custom <code>Dataset</code> classes for data loading, and uses <code>DataLoader</code> for batching. The training loop includes forward and backward passes, optimizer steps, and periodic evaluation on a validation set.
+            </p>
+            <pre><code class="language-python">
+# Example training loop (LeNet or ResNet)
+for epoch in range(num_epochs):
+    model.train()
+    total_loss = 0
+    for batch_idx, (images, labels) in enumerate(train_loader):
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+    print(f'Epoch [{epoch+1}/{num_epochs}], Training Loss: {total_loss / len(train_loader):.4f}')
+    # Validation phase
+    model.eval()
+    correct = 0
+    total = 0
+    val_loss = 0
+    with torch.no_grad():
+        for images, labels in val_loader:
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            val_loss += loss.item()
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    val_accuracy = 100 * correct / total
+    print(f'Epoch [{epoch+1}/{num_epochs}], Validation Loss: {val_loss / len(val_loader):.4f}, Validation Accuracy: {val_accuracy:.2f}%')
+            </code></pre>
+
+            <h2 id="conclusion">Conclusion</h2>
+            <p>
+                This archive provides reference implementations of LeNet and ResNet in PyTorch, focusing on architectural clarity and code readability. These models serve as a foundation for further experimentation and adaptation to various image classification tasks. The modular code structure allows easy extension to other datasets and architectures.
+            </p>
+
+            <h2 id="bibliography">Bibliography</h2>
+            <ul>
+                <li>Yann LeCun, Léon Bottou, Yoshua Bengio, and Patrick Haffner. "Gradient-Based Learning Applied to Document Recognition." Proceedings of the IEEE, 1998.</li>
+                <li>Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. "Deep Residual Learning for Image Recognition." CVPR, 2016.</li>
+                <li>PyTorch Documentation: <a href="https://pytorch.org/docs/stable/index.html" target="_blank">https://pytorch.org/docs/stable/index.html</a></li>
+                <li>LeNet-5 Architecture Explained: <a href="https://medium.com/@siddheshb008/lenet-5-architecture-explained-3b559cb2d52b" target="_blank">https://medium.com/@siddheshb008/lenet-5-architecture-explained-3b559cb2d52b</a></li>
+            </ul>
+        </article>
+    </main>
+    </footer>
+</body>
